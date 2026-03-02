@@ -17,8 +17,10 @@ export default function HostLobby() {
   const router = useRouter();
   const pin = params.pin as string;
   const [players, setPlayers] = useState<Player[]>([]);
+  const [joinUrl, setJoinUrl] = useState<string>('');
 
   useEffect(() => {
+    setJoinUrl(window.location.host);
     const socket = getSocket();
 
     // Listen for players joining
@@ -72,7 +74,7 @@ export default function HostLobby() {
                 <Users className="w-10 h-10 text-gray-400" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Waiting for players...</h2>
-              <p className="text-gray-500 text-lg">Go to ai-studio-applet.run.app and enter PIN: <span className="font-bold text-indigo-600">{pin}</span></p>
+              <p className="text-gray-500 text-lg">Go to <span className="font-semibold text-gray-800">{joinUrl || 'the homepage'}</span> and enter PIN: <span className="font-bold text-indigo-600">{pin}</span></p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
