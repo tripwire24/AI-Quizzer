@@ -1,0 +1,5 @@
+{
+  "name": "AI Quizzer",
+  "description": "An interactive presenting app like Kahoot for AI concepts.",
+  "requestFramePermissions": []
+}
