@@ -137,6 +137,7 @@ export default function HostGame() {
         setTotalPlayers(players.length);
         setAnswersCount(0);
         revealShownRef.current = false;
+        playMusic();
         setPlayerStatuses(
           players.map((p) => ({
             nickname: p.nickname,
@@ -174,7 +175,7 @@ export default function HostGame() {
         setTimeRemaining(question.timeLimit);
         setAnswersCount(0);
         revealShownRef.current = false;
-        stopMusic();
+        playMusic();
         setPlayerStatuses((prev) =>
           prev.map((p) => ({ ...p, hasAnswered: false, answerOrder: 0, isCorrect: false, speedLabel: null })),
         );
@@ -215,7 +216,7 @@ export default function HostGame() {
         speedWinners: { nickname: string; avatar: string; label: string }[];
       }) => {
         setStatus('answer_reveal');
-        playMusic();
+        stopMusic();
         // Store reveal data in the playerStatuses for display
         if (speedWinners?.length) {
           setPlayerStatuses((prev) => {
@@ -246,7 +247,6 @@ export default function HostGame() {
         setLeaderboard(lb);
         setQuestionsRemaining(qr);
         if (timerRef.current) clearInterval(timerRef.current);
-        playMusic();
       },
     );
 
