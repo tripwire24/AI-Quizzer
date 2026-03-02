@@ -246,7 +246,7 @@ export default function PlayGame() {
                   <motion.div 
                     className={`h-full rounded-full ${timeRemaining <= 5 ? 'bg-red-500' : timeRemaining <= 10 ? 'bg-amber-500' : 'bg-indigo-500'}`}
                     initial={{ width: '100%' }}
-                    animate={{ width: `${(timeRemaining / (currentQuestion.timeLimit || 20)) * 100}%` }}
+                    animate={{ width: `${(timeRemaining / (currentQuestion.timeLimit || 30)) * 100}%` }}
                     transition={{ duration: 0.5 }}
                   />
                 </div>

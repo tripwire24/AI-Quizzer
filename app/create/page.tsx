@@ -17,7 +17,7 @@ export default function CreateQuizPage() {
     {
       id: 'q1',
       text: '',
-      timeLimit: 20,
+      timeLimit: 30,
       options: [
         { id: 'o1', text: '', color: COLORS[0], isCorrect: true },
         { id: 'o2', text: '', color: COLORS[1], isCorrect: false },
@@ -33,7 +33,7 @@ export default function CreateQuizPage() {
       {
         id: `q${Date.now()}`,
         text: '',
-        timeLimit: 20,
+        timeLimit: 30,
         options: [
           { id: `o1_${Date.now()}`, text: '', color: COLORS[0], isCorrect: true },
           { id: `o2_${Date.now()}`, text: '', color: COLORS[1], isCorrect: false },
