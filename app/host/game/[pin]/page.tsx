@@ -216,7 +216,6 @@ export default function HostGame() {
         speedWinners: { nickname: string; avatar: string; label: string }[];
       }) => {
         setStatus('answer_reveal');
-        stopMusic();
         // Store reveal data in the playerStatuses for display
         if (speedWinners?.length) {
           setPlayerStatuses((prev) => {
@@ -236,6 +235,7 @@ export default function HostGame() {
       const players = Array.isArray(data) ? data : data.players;
       setStatus('leaderboard');
       setLeaderboard(players);
+      stopMusic();
       if (timerRef.current) clearInterval(timerRef.current);
     });
 
