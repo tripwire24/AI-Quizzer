@@ -114,12 +114,12 @@ export default function HostGame() {
     const socket = getSocket();
     socket.emit('get_game_state', pin);
 
-    const triggerReveal = () => {
+    /** Emit show_leaderboard once — server orchestrates reveal → leaderboard */
+    const emitShowLeaderboard = () => {
       if (revealShownRef.current) return;
       revealShownRef.current = true;
-      setStatus('answer_reveal');
-      playMusic();
-      setTimeout(() => socket.emit('show_leaderboard', pin), 3000);
+      if (timerRef.current) clearInterval(timerRef.current);
+      socket.emit('show_leaderboard', pin);
     };
 
     /* initial game state */
@@ -153,7 +153,6 @@ export default function HostGame() {
           setTimeRemaining((prev) => {
             if (prev <= 1) {
               clearInterval(timerRef.current!);
-              triggerReveal();
               return 0;
             }
             return prev - 1;
@@ -185,7 +184,6 @@ export default function HostGame() {
           setTimeRemaining((prev) => {
             if (prev <= 1) {
               clearInterval(timerRef.current!);
-              triggerReveal();
               return 0;
             }
             return prev - 1;
@@ -204,14 +202,37 @@ export default function HostGame() {
         setTotalPlayers(tp);
         if (ps) setPlayerStatuses(ps);
         if (totalAnswers === tp) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          triggerReveal();
+          emitShowLeaderboard();
         }
       },
     );
 
-    /* leaderboard (arrives after 3 s reveal) */
-    socket.on('leaderboard_shown', ({ players }: { players: Player[] }) => {
+    /* answer reveal from server */
+    socket.on(
+      'answer_reveal',
+      ({ correctAnswer, speedWinners }: {
+        correctAnswer: { id: string; text: string; color: string } | null;
+        speedWinners: { nickname: string; avatar: string; label: string }[];
+      }) => {
+        setStatus('answer_reveal');
+        playMusic();
+        // Store reveal data in the playerStatuses for display
+        if (speedWinners?.length) {
+          setPlayerStatuses((prev) => {
+            const updated = [...prev];
+            speedWinners.forEach((sw) => {
+              const idx = updated.findIndex((p) => p.nickname === sw.nickname);
+              if (idx >= 0) updated[idx] = { ...updated[idx], speedLabel: sw.label };
+            });
+            return updated;
+          });
+        }
+      },
+    );
+
+    /* leaderboard (arrives ~3.5 s after reveal) */
+    socket.on('leaderboard_shown', (data: { players: Player[] } | Player[]) => {
+      const players = Array.isArray(data) ? data : data.players;
       setStatus('leaderboard');
       setLeaderboard(players);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -241,12 +262,22 @@ export default function HostGame() {
       socket.off('game_state');
       socket.off('question_started');
       socket.off('player_answered');
+      socket.off('answer_reveal');
       socket.off('leaderboard_shown');
       socket.off('mid_game_leaderboard');
       socket.off('game_finished');
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [pin, playMusic, stopMusic]);
+
+  /* ── Timer-zero → tell server to show leaderboard ── */
+  useEffect(() => {
+    if (timeRemaining === 0 && status === 'question_active' && !revealShownRef.current) {
+      revealShownRef.current = true;
+      if (timerRef.current) clearInterval(timerRef.current);
+      getSocket().emit('show_leaderboard', pin);
+    }
+  }, [timeRemaining, status, pin]);
 
   /* cleanup music on unmount */
   useEffect(

@@ -75,6 +75,11 @@ export default function PlayGame() {
       setLastResult(result);
     });
 
+    // Server sends answer_reveal before leaderboard — player stays in result state
+    socket.on('answer_reveal', () => {
+      // No status change needed — player keeps seeing their correct/incorrect result
+    });
+
     socket.on('leaderboard_shown', (data: { players: Player[] } | Player[]) => {
       const players = Array.isArray(data) ? data : data.players;
       setStatus('leaderboard');
@@ -125,6 +130,7 @@ export default function PlayGame() {
       socket.off('error');
       socket.off('question_started');
       socket.off('answer_result');
+      socket.off('answer_reveal');
       socket.off('leaderboard_shown');
       socket.off('mid_game_leaderboard');
       socket.off('game_finished');

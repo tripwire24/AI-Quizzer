@@ -218,27 +218,36 @@ app.prepare().then(() => {
       }
     });
 
-    // Host shows leaderboard (called after answer reveal finishes)
+    // Host shows leaderboard — server orchestrates reveal → leaderboard
     socket.on('show_leaderboard', (pin) => {
       const session = sessions[pin];
       if (session && session.hostSocketId === socket.id) {
-        session.status = 'leaderboard';
         const currentQuestion = session.questions[session.currentQuestionIndex];
         const correctOption = currentQuestion.options.find(o => o.isCorrect);
 
-        const sortedPlayers = Object.values(session.players).sort((a, b) => b.score - a.score);
         const speedWinners = Object.values(session.players)
           .filter(p => p.speedLabel)
           .sort((a, b) => (a.correctOrder || 99) - (b.correctOrder || 99))
           .map(p => ({ nickname: p.nickname, avatar: p.avatar, label: p.speedLabel }));
 
-        io.to(pin).emit('leaderboard_shown', {
-          players: sortedPlayers,
+        // 1) Immediately show the correct answer reveal to everyone
+        io.to(pin).emit('answer_reveal', {
           correctAnswer: correctOption
             ? { id: correctOption.id, text: correctOption.text, color: correctOption.color }
             : null,
           speedWinners,
         });
+
+        // 2) After 3.5 seconds, send leaderboard to everyone
+        setTimeout(() => {
+          // Guard: session might have been deleted (host disconnected)
+          if (!sessions[pin]) return;
+          session.status = 'leaderboard';
+          const sortedPlayers = Object.values(session.players).sort((a, b) => b.score - a.score);
+          io.to(pin).emit('leaderboard_shown', {
+            players: sortedPlayers,
+          });
+        }, 3500);
       }
     });
 
