@@ -4,27 +4,30 @@ import { UserCircle } from 'lucide-react';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-indigo-600 flex flex-col items-center justify-center p-4 relative">
+    <main className="min-h-screen bg-gradient-to-b from-gray-900 via-indigo-950 to-gray-900 flex flex-col items-center justify-center p-4 relative">
       <div className="absolute top-4 right-4">
-        <Link href="/profile" className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full backdrop-blur-sm transition-colors">
+        <Link href="/profile" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full backdrop-blur-sm transition-colors ring-1 ring-white/20">
           <UserCircle className="w-5 h-5" />
           <span className="font-medium">Profile</span>
         </Link>
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center">
-        <h1 className="text-4xl font-bold text-indigo-900 mb-2">AI Quizzer</h1>
-        <p className="text-gray-500 mb-8">Join a game or host your own!</p>
+      {/* Floating decoration */}
+      <div className="text-6xl mb-6 animate-bounce">🧠</div>
+
+      <div className="w-full max-w-md bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 text-center ring-1 ring-white/10">
+        <h1 className="text-4xl font-black text-white mb-1">AI Quizzer</h1>
+        <p className="text-indigo-300 mb-8 text-sm">Join a game or host your own!</p>
         
         <JoinGameForm />
         
-        <div className="mt-8 pt-6 border-t border-gray-100">
+        <div className="mt-8 pt-6 border-t border-white/10">
           <p className="text-sm text-gray-500 mb-4">Want to host a game?</p>
           <Link 
             href="/host"
-            className="inline-block w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl transition-colors"
+            className="inline-block w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors shadow-lg"
           >
-            Host a Game
+            🎮 Host a Game
           </Link>
         </div>
       </div>
