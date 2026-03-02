@@ -85,7 +85,7 @@ export default function HostGame() {
       } while (idx === lastTrackRef.current && MUSIC_TRACKS.length > 1);
       lastTrackRef.current = idx;
       const audio = new Audio(MUSIC_TRACKS[idx]);
-      audio.volume = 0.3;
+      audio.volume = 0.7;
       audio.loop = true;
       audio.play().catch(() => {});
       musicRef.current = audio;
