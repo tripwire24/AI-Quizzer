@@ -35,6 +35,8 @@ export default function PlayGame() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [lastResult, setLastResult] = useState<{ isCorrect: boolean; score: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [leaderboard, setLeaderboard] = useState<Player[]>([]);
+  const [myRank, setMyRank] = useState<number>(0);
 
   useEffect(() => {
     const socket = getSocket();
@@ -63,22 +65,32 @@ export default function PlayGame() {
       setLastResult(result);
     });
 
-    socket.on('leaderboard_shown', () => {
+    socket.on('leaderboard_shown', (players: Player[]) => {
       setStatus('leaderboard');
+      setLeaderboard(players);
+      const rank = players.findIndex(p => p.socketId === socket.id) + 1;
+      setMyRank(rank);
+      // Update player score from leaderboard
+      const myData = players.find(p => p.socketId === socket.id);
+      if (myData) {
+        setPlayer(prev => prev ? { ...prev, score: myData.score } : null);
+      }
     });
 
     socket.on('game_finished', (players: Player[]) => {
       setStatus('finished');
+      setLeaderboard(players);
       
       // Save to history
-      const myRank = players.findIndex(p => p.socketId === socket.id) + 1;
+      const rank = players.findIndex(p => p.socketId === socket.id) + 1;
       const myScore = players.find(p => p.socketId === socket.id)?.score || 0;
+      setMyRank(rank);
       
       useUserStore.getState().addHistory({
         pin,
         date: new Date().toISOString(),
         score: myScore,
-        rank: myRank,
+        rank: rank,
         totalPlayers: players.length
       });
     });
@@ -245,10 +257,44 @@ export default function PlayGame() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-indigo-600 text-white p-6 text-center"
+              className="absolute inset-0 flex flex-col bg-indigo-600 text-white p-4"
             >
-              <h2 className="text-3xl font-black mb-4">Look at the screen!</h2>
-              <p className="text-xl text-indigo-200">Are you on the podium?</p>
+              {/* My Position Highlight */}
+              <div className="bg-white/20 rounded-2xl p-4 mb-4 text-center">
+                <p className="text-indigo-200 text-sm mb-1">Your Position</p>
+                <div className="text-5xl font-black"># {myRank}</div>
+                <p className="text-xl font-bold mt-1">{player?.score || 0} pts</p>
+              </div>
+              
+              {/* Leaderboard List */}
+              <div className="flex-1 overflow-y-auto">
+                <h3 className="text-lg font-bold mb-2 text-indigo-200">Leaderboard</h3>
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 10).map((p, idx) => (
+                    <motion.div 
+                      key={p.id}
+                      initial={{ x: -20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={`flex justify-between items-center px-4 py-3 rounded-xl ${
+                        p.nickname === nickname 
+                          ? 'bg-white text-indigo-600 font-bold' 
+                          : 'bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`text-lg font-black ${idx < 3 ? 'text-yellow-400' : ''}`}>
+                          #{idx + 1}
+                        </span>
+                        <span className="font-semibold truncate max-w-[120px]">
+                          {p.nickname}
+                        </span>
+                      </div>
+                      <span className="font-bold">{p.score}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -258,12 +304,48 @@ export default function PlayGame() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-indigo-600 text-white p-6 text-center"
+              className="absolute inset-0 flex flex-col bg-indigo-600 text-white p-4"
             >
-              <h1 className="text-4xl font-black mb-8">Game Over!</h1>
+              <h1 className="text-3xl font-black text-center mb-4">Game Over!</h1>
+              
+              {/* Final Position */}
+              <div className="bg-white/20 rounded-2xl p-6 mb-4 text-center">
+                <p className="text-indigo-200 text-sm mb-1">You Finished</p>
+                <div className="text-6xl font-black">#{myRank}</div>
+                <p className="text-2xl font-bold mt-2">{player?.score || 0} points</p>
+                <p className="text-indigo-200 mt-1">out of {leaderboard.length} players</p>
+              </div>
+              
+              {/* Top 5 */}
+              <div className="flex-1 overflow-y-auto mb-4">
+                <h3 className="text-lg font-bold mb-2 text-indigo-200">Top 5</h3>
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 5).map((p, idx) => (
+                    <div 
+                      key={p.id}
+                      className={`flex justify-between items-center px-4 py-3 rounded-xl ${
+                        p.nickname === nickname 
+                          ? 'bg-white text-indigo-600' 
+                          : 'bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`text-lg font-black ${
+                          idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-orange-400' : ''
+                        }`}>
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                        </span>
+                        <span className="font-semibold">{p.nickname}</span>
+                      </div>
+                      <span className="font-bold">{p.score}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <button
                 onClick={() => router.push('/')}
-                className="px-8 py-4 bg-white text-indigo-600 hover:bg-gray-100 text-xl font-bold rounded-xl shadow-lg transition-all active:scale-95"
+                className="w-full py-4 bg-white text-indigo-600 hover:bg-gray-100 text-xl font-bold rounded-xl shadow-lg transition-all active:scale-95"
               >
                 Play Again
               </button>
