@@ -20,12 +20,25 @@ export default function HostLobby() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [joinUrl, setJoinUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [connected, setConnected] = useState(true);
 
   useEffect(() => {
     // Get the full origin (protocol + host)
     const origin = window.location.origin;
     setJoinUrl(origin);
     const socket = getSocket();
+
+    // Track connection status
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    setConnected(socket.connected);
+
+    // Keep-alive ping every 4 minutes to prevent Render free-tier spin-down
+    const keepAlive = setInterval(() => {
+      fetch('/api/ping').catch(() => {});
+    }, 4 * 60 * 1000);
 
     // Listen for players joining
     socket.on('player_joined', (updatedPlayers: Player[]) => {
@@ -37,6 +50,9 @@ export default function HostLobby() {
     });
 
     return () => {
+      clearInterval(keepAlive);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
       socket.off('player_joined');
       socket.off('player_left');
     };
@@ -65,6 +81,12 @@ export default function HostLobby() {
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Connection lost warning */}
+      {!connected && (
+        <div className="bg-red-600 text-white text-center py-3 px-4 font-bold animate-pulse">
+          ⚠️ Connection lost — server may have restarted. <button onClick={() => router.push('/host')} className="underline ml-2">Create a new game</button>
+        </div>
+      )}
       <div className="bg-white border-b border-gray-200 px-8 py-6 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
           <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg font-bold text-xl">

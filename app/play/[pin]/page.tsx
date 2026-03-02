@@ -43,7 +43,17 @@ export default function PlayGame() {
   useEffect(() => {
     const socket = getSocket();
 
-    socket.emit('join_game', { pin, nickname, avatar });
+    // Join (or re-join) once the socket is connected
+    const doJoin = () => {
+      setError(null);
+      socket.emit('join_game', { pin, nickname, avatar });
+    };
+
+    if (socket.connected) {
+      doJoin();
+    }
+    // Also join on every (re)connect so we survive server restarts
+    socket.on('connect', doJoin);
 
     socket.on('joined_game', ({ pin, player }) => {
       setStatus('lobby');
@@ -115,6 +125,7 @@ export default function PlayGame() {
     });
 
     return () => {
+      socket.off('connect', doJoin);
       socket.off('joined_game');
       socket.off('error');
       socket.off('question_started');

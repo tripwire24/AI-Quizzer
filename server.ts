@@ -264,6 +264,11 @@ app.prepare().then(() => {
     });
   });
 
+  // Keep-alive endpoint (prevents Render free-tier spin-down)
+  expressApp.get('/api/ping', (_req, res) => {
+    res.json({ ok: true, sessions: Object.keys(sessions).length });
+  });
+
   // Next.js request handling
   expressApp.all(/.*/, (req, res) => {
     const parsedUrl = parse(req.url!, true);
