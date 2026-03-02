@@ -42,6 +42,11 @@ const MUSIC_TRACKS = [
   '/music/track3.mp3',
   '/music/track4.mp3',
   '/music/track5.mp3',
+  '/music/track6.mp3',
+  '/music/track7.mp3',
+  '/music/track8.mp3',
+  '/music/track9.mp3',
+  '/music/track10.mp3',
 ];
 
 const getIcon = (idx: number) =>
