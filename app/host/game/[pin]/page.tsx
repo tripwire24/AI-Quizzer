@@ -18,6 +18,7 @@ interface Player {
   id: string;
   socketId: string;
   nickname: string;
+  avatar: string;
   score: number;
   hasAnswered: boolean;
   lastAnswerCorrect: boolean;
@@ -28,7 +29,7 @@ export default function HostGame() {
   const router = useRouter();
   const pin = params.pin as string;
   
-  const [status, setStatus] = useState<'question_active' | 'leaderboard' | 'finished'>('question_active');
+  const [status, setStatus] = useState<'loading' | 'question_active' | 'leaderboard' | 'mid_leaderboard' | 'finished'>('loading');
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
@@ -36,17 +37,44 @@ export default function HostGame() {
   const [answersCount, setAnswersCount] = useState(0);
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [leaderboard, setLeaderboard] = useState<Player[]>([]);
+  const [questionsRemaining, setQuestionsRemaining] = useState(0);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const socket = getSocket();
 
-    socket.on('question_started', ({ questionIndex, question, totalQuestions }) => {
+    // Request game state when component mounts
+    socket.emit('get_game_state', pin);
+
+    // Handle initial game state
+    socket.on('game_state', ({ status: gameStatus, questionIndex: qIdx, question, totalQuestions: total, players }) => {
       setStatus('question_active');
       setCurrentQuestion(question);
-      setQuestionIndex(questionIndex);
-      setTotalQuestions(totalQuestions);
+      setQuestionIndex(qIdx);
+      setTotalQuestions(total);
+      setTimeRemaining(question.timeLimit);
+      setTotalPlayers(players.length);
+      setAnswersCount(0);
+      
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current!);
+            socket.emit('show_leaderboard', pin);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    });
+
+    socket.on('question_started', ({ questionIndex: qIdx, question, totalQuestions: total }) => {
+      setStatus('question_active');
+      setCurrentQuestion(question);
+      setQuestionIndex(qIdx);
+      setTotalQuestions(total);
       setTimeRemaining(question.timeLimit);
       setAnswersCount(0);
       
@@ -63,12 +91,12 @@ export default function HostGame() {
       }, 1000);
     });
 
-    socket.on('player_answered', ({ totalAnswers, totalPlayers }) => {
+    socket.on('player_answered', ({ totalAnswers, totalPlayers: tp }) => {
       setAnswersCount(totalAnswers);
-      setTotalPlayers(totalPlayers);
+      setTotalPlayers(tp);
       
       // If everyone answered, stop timer and show leaderboard
-      if (totalAnswers === totalPlayers) {
+      if (totalAnswers === tp) {
         if (timerRef.current) clearInterval(timerRef.current);
         socket.emit('show_leaderboard', pin);
       }
@@ -77,6 +105,13 @@ export default function HostGame() {
     socket.on('leaderboard_shown', (players: Player[]) => {
       setStatus('leaderboard');
       setLeaderboard(players);
+      if (timerRef.current) clearInterval(timerRef.current);
+    });
+
+    socket.on('mid_game_leaderboard', ({ leaderboard: lb, questionsRemaining: qr }) => {
+      setStatus('mid_leaderboard');
+      setLeaderboard(lb);
+      setQuestionsRemaining(qr);
       if (timerRef.current) clearInterval(timerRef.current);
     });
 
@@ -91,9 +126,11 @@ export default function HostGame() {
     });
 
     return () => {
+      socket.off('game_state');
       socket.off('question_started');
       socket.off('player_answered');
       socket.off('leaderboard_shown');
+      socket.off('mid_game_leaderboard');
       socket.off('game_finished');
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -104,8 +141,18 @@ export default function HostGame() {
     socket.emit('next_question', pin);
   };
 
-  if (!currentQuestion && status !== 'finished') {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-2xl font-bold">Loading question...</div>;
+  const handleContinueFromLeaderboard = () => {
+    const socket = getSocket();
+    socket.emit('continue_from_leaderboard', pin);
+  };
+
+  if (status === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center bg-indigo-600 text-white text-2xl font-bold">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+        Starting game...
+      </div>
+    </div>;
   }
 
   return (
@@ -169,6 +216,7 @@ export default function HostGame() {
                   <span className={`text-2xl font-black ${idx === 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
                     #{idx + 1}
                   </span>
+                  <span className="text-3xl">{player.avatar || '😊'}</span>
                   <span className="text-2xl font-bold text-gray-900">{player.nickname}</span>
                 </div>
                 <span className="text-2xl font-black text-indigo-600">{player.score}</span>
@@ -181,6 +229,45 @@ export default function HostGame() {
             className="px-12 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-2xl font-bold rounded-2xl shadow-xl transition-all active:scale-95"
           >
             Next
+          </button>
+        </motion.div>
+      )}
+
+      {status === 'mid_leaderboard' && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-br from-indigo-600 to-purple-700 text-white"
+        >
+          <h2 className="text-4xl font-black mb-4">🏆 Halfway Check!</h2>
+          <p className="text-xl text-indigo-200 mb-8">{questionsRemaining} questions remaining</p>
+          
+          <div className="w-full max-w-3xl bg-white/10 backdrop-blur-sm rounded-3xl overflow-hidden mb-12">
+            {leaderboard.slice(0, 5).map((player, idx) => (
+              <motion.div 
+                initial={{ x: -50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: idx * 0.1 }}
+                key={player.id}
+                className={`flex justify-between items-center p-6 border-b border-white/10 ${idx === 0 ? 'bg-yellow-400/20' : ''}`}
+              >
+                <div className="flex items-center gap-6">
+                  <span className={`text-2xl font-black ${idx === 0 ? 'text-yellow-300' : 'text-white/60'}`}>
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                  </span>
+                  <span className="text-3xl">{player.avatar || '😊'}</span>
+                  <span className="text-2xl font-bold">{player.nickname}</span>
+                </div>
+                <span className="text-2xl font-black">{player.score}</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleContinueFromLeaderboard}
+            className="px-12 py-4 bg-white text-indigo-600 hover:bg-gray-100 text-2xl font-bold rounded-2xl shadow-xl transition-all active:scale-95"
+          >
+            Continue Quiz →
           </button>
         </motion.div>
       )}
@@ -202,10 +289,11 @@ export default function HostGame() {
                 transition={{ delay: 0.5, type: 'spring' }}
                 className="flex flex-col items-center"
               >
-                <div className="text-2xl font-bold mb-4">{leaderboard[1].nickname}</div>
+                <div className="text-5xl mb-2">{leaderboard[1].avatar || '😊'}</div>
+                <div className="text-2xl font-bold mb-2">{leaderboard[1].nickname}</div>
                 <div className="text-xl font-semibold mb-2">{leaderboard[1].score}</div>
                 <div className="w-32 h-48 bg-gray-300 rounded-t-xl flex items-start justify-center pt-4 shadow-2xl">
-                  <span className="text-4xl font-black text-gray-500">2</span>
+                  <span className="text-4xl font-black text-gray-500">🥈</span>
                 </div>
               </motion.div>
             )}
@@ -218,10 +306,11 @@ export default function HostGame() {
                 transition={{ delay: 1, type: 'spring' }}
                 className="flex flex-col items-center z-10"
               >
-                <div className="text-3xl font-black mb-4 text-yellow-300">{leaderboard[0].nickname}</div>
+                <div className="text-6xl mb-2">{leaderboard[0].avatar || '😊'}</div>
+                <div className="text-3xl font-black mb-2 text-yellow-300">{leaderboard[0].nickname}</div>
                 <div className="text-2xl font-bold mb-2">{leaderboard[0].score}</div>
                 <div className="w-40 h-64 bg-yellow-400 rounded-t-xl flex items-start justify-center pt-4 shadow-2xl">
-                  <span className="text-5xl font-black text-yellow-600">1</span>
+                  <span className="text-5xl font-black">🥇</span>
                 </div>
               </motion.div>
             )}
@@ -234,10 +323,11 @@ export default function HostGame() {
                 transition={{ delay: 0.2, type: 'spring' }}
                 className="flex flex-col items-center"
               >
-                <div className="text-2xl font-bold mb-4">{leaderboard[2].nickname}</div>
+                <div className="text-5xl mb-2">{leaderboard[2].avatar || '😊'}</div>
+                <div className="text-2xl font-bold mb-2">{leaderboard[2].nickname}</div>
                 <div className="text-xl font-semibold mb-2">{leaderboard[2].score}</div>
                 <div className="w-32 h-32 bg-orange-400 rounded-t-xl flex items-start justify-center pt-4 shadow-2xl">
-                  <span className="text-4xl font-black text-orange-700">3</span>
+                  <span className="text-4xl font-black">🥉</span>
                 </div>
               </motion.div>
             )}

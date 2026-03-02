@@ -13,6 +13,7 @@ interface Player {
   id: string;
   socketId: string;
   nickname: string;
+  avatar: string;
   score: number;
   hasAnswered: boolean;
   lastAnswerCorrect: boolean;
@@ -69,7 +70,7 @@ app.prepare().then(() => {
     });
 
     // Player joins a game
-    socket.on('join_game', ({ pin, nickname }) => {
+    socket.on('join_game', ({ pin, nickname, avatar }) => {
       const session = sessions[pin];
       if (!session) {
         socket.emit('error', 'Game not found');
@@ -85,6 +86,7 @@ app.prepare().then(() => {
         id: playerId,
         socketId: socket.id,
         nickname,
+        avatar: avatar || '😊',
         score: 0,
         hasAnswered: false,
         lastAnswerCorrect: false,
@@ -113,11 +115,30 @@ app.prepare().then(() => {
           p.lastAnswerCorrect = false;
         });
 
-        const currentQuestion = session.questions[0];
+        // Emit game_started to host so they know to navigate
+        socket.emit('game_started', pin);
+      }
+    });
+
+    // Host game page requests current state (called when host game page mounts)
+    socket.on('get_game_state', (pin) => {
+      const session = sessions[pin];
+      if (session && session.hostSocketId === socket.id) {
+        const currentQuestion = session.questions[session.currentQuestionIndex];
         
-        // Send question to everyone
+        // Send current state to the host
+        socket.emit('game_state', {
+          status: session.status,
+          questionIndex: session.currentQuestionIndex,
+          question: currentQuestion,
+          totalQuestions: session.questions.length,
+          players: Object.values(session.players),
+          leaderboard: Object.values(session.players).sort((a, b) => b.score - a.score)
+        });
+
+        // Also send question_started to all players
         io.to(pin).emit('question_started', {
-          questionIndex: 0,
+          questionIndex: session.currentQuestionIndex,
           question: currentQuestion,
           totalQuestions: session.questions.length
         });
@@ -134,20 +155,49 @@ app.prepare().then(() => {
           session.status = 'finished';
           io.to(pin).emit('game_finished', Object.values(session.players).sort((a, b) => b.score - a.score));
         } else {
-          session.status = 'question_active';
-          // Reset player answer states
-          Object.values(session.players).forEach(p => {
-            p.hasAnswered = false;
-            p.lastAnswerCorrect = false;
-          });
+          // Check if we should show a mid-game leaderboard (every 5 questions)
+          if (session.currentQuestionIndex % 5 === 0) {
+            session.status = 'leaderboard';
+            io.to(pin).emit('mid_game_leaderboard', {
+              leaderboard: Object.values(session.players).sort((a, b) => b.score - a.score),
+              questionsRemaining: session.questions.length - session.currentQuestionIndex
+            });
+          } else {
+            session.status = 'question_active';
+            // Reset player answer states
+            Object.values(session.players).forEach(p => {
+              p.hasAnswered = false;
+              p.lastAnswerCorrect = false;
+            });
 
-          const currentQuestion = session.questions[session.currentQuestionIndex];
-          io.to(pin).emit('question_started', {
-            questionIndex: session.currentQuestionIndex,
-            question: currentQuestion,
-            totalQuestions: session.questions.length
-          });
+            const currentQuestion = session.questions[session.currentQuestionIndex];
+            io.to(pin).emit('question_started', {
+              questionIndex: session.currentQuestionIndex,
+              question: currentQuestion,
+              totalQuestions: session.questions.length
+            });
+          }
         }
+      }
+    });
+
+    // Host continues from mid-game leaderboard
+    socket.on('continue_from_leaderboard', (pin) => {
+      const session = sessions[pin];
+      if (session && session.hostSocketId === socket.id) {
+        session.status = 'question_active';
+        // Reset player answer states
+        Object.values(session.players).forEach(p => {
+          p.hasAnswered = false;
+          p.lastAnswerCorrect = false;
+        });
+
+        const currentQuestion = session.questions[session.currentQuestionIndex];
+        io.to(pin).emit('question_started', {
+          questionIndex: session.currentQuestionIndex,
+          question: currentQuestion,
+          totalQuestions: session.questions.length
+        });
       }
     });
 

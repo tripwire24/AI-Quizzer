@@ -18,6 +18,7 @@ interface Player {
   id: string;
   socketId: string;
   nickname: string;
+  avatar: string;
   score: number;
 }
 
@@ -28,6 +29,7 @@ export default function PlayGame() {
   
   const pin = params.pin as string;
   const nickname = searchParams.get('nickname') || 'Guest';
+  const avatar = searchParams.get('avatar') || '😊';
 
   const [status, setStatus] = useState<'connecting' | 'lobby' | 'question_active' | 'answered' | 'result' | 'leaderboard' | 'finished'>('connecting');
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -41,7 +43,7 @@ export default function PlayGame() {
   useEffect(() => {
     const socket = getSocket();
 
-    socket.emit('join_game', { pin, nickname });
+    socket.emit('join_game', { pin, nickname, avatar });
 
     socket.on('joined_game', ({ pin, player }) => {
       setStatus('lobby');
@@ -77,6 +79,18 @@ export default function PlayGame() {
       }
     });
 
+    socket.on('mid_game_leaderboard', ({ leaderboard: players }) => {
+      setStatus('leaderboard');
+      setLeaderboard(players);
+      const rank = players.findIndex((p: Player) => p.socketId === socket.id) + 1;
+      setMyRank(rank);
+      // Update player score from leaderboard
+      const myData = players.find((p: Player) => p.socketId === socket.id);
+      if (myData) {
+        setPlayer(prev => prev ? { ...prev, score: myData.score } : null);
+      }
+    });
+
     socket.on('game_finished', (players: Player[]) => {
       setStatus('finished');
       setLeaderboard(players);
@@ -106,10 +120,11 @@ export default function PlayGame() {
       socket.off('question_started');
       socket.off('answer_result');
       socket.off('leaderboard_shown');
+      socket.off('mid_game_leaderboard');
       socket.off('game_finished');
       socket.off('host_disconnected');
     };
-  }, [pin, nickname]);
+  }, [pin, nickname, avatar]);
 
   // Handle timer
   useEffect(() => {
@@ -286,6 +301,7 @@ export default function PlayGame() {
                         <span className={`text-lg font-black ${idx < 3 ? 'text-yellow-400' : ''}`}>
                           #{idx + 1}
                         </span>
+                        {p.avatar && <span className="text-2xl">{p.avatar}</span>}
                         <span className="font-semibold truncate max-w-[120px]">
                           {p.nickname}
                         </span>
@@ -335,6 +351,7 @@ export default function PlayGame() {
                         }`}>
                           {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                         </span>
+                        {p.avatar && <span className="text-2xl">{p.avatar}</span>}
                         <span className="font-semibold">{p.nickname}</span>
                       </div>
                       <span className="font-bold">{p.score}</span>

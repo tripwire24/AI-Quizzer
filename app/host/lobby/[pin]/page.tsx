@@ -9,6 +9,7 @@ interface Player {
   id: string;
   socketId: string;
   nickname: string;
+  avatar: string;
   score: number;
 }
 
@@ -43,8 +44,13 @@ export default function HostLobby() {
 
   const handleStartGame = () => {
     const socket = getSocket();
+    
+    // Listen for game_started before navigating
+    socket.once('game_started', () => {
+      router.push(`/host/game/${pin}`);
+    });
+    
     socket.emit('start_game', pin);
-    router.push(`/host/game/${pin}`);
   };
 
   const copyJoinLink = async () => {
@@ -126,8 +132,8 @@ export default function HostLobby() {
                   key={player.id}
                   className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm animate-in fade-in zoom-in duration-300"
                 >
-                  <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-xl">
-                    {player.nickname.charAt(0).toUpperCase()}
+                  <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">
+                    {player.avatar || '😊'}
                   </div>
                   <p className="font-semibold text-gray-900 truncate">{player.nickname}</p>
                 </div>
