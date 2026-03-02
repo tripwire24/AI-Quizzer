@@ -35,7 +35,7 @@ export default function PlayGame() {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [lastResult, setLastResult] = useState<{ isCorrect: boolean; score: number } | null>(null);
+  const [lastResult, setLastResult] = useState<{ isCorrect: boolean; score: number; pointsEarned: number; speedLabel: string | null; speedBonus: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<Player[]>([]);
   const [myRank, setMyRank] = useState<number>(0);
@@ -75,7 +75,8 @@ export default function PlayGame() {
       setLastResult(result);
     });
 
-    socket.on('leaderboard_shown', (players: Player[]) => {
+    socket.on('leaderboard_shown', (data: { players: Player[] } | Player[]) => {
+      const players = Array.isArray(data) ? data : data.players;
       setStatus('leaderboard');
       setLeaderboard(players);
       const rank = players.findIndex(p => p.socketId === socket.id) + 1;
@@ -331,17 +332,32 @@ export default function PlayGame() {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-4xl font-black mb-4"
+                className="text-4xl font-black mb-2"
               >
                 {lastResult.isCorrect ? 'Nailed it!' : 'Not quite!'}
               </motion.h1>
+              {lastResult.speedLabel && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.3, type: 'spring' }}
+                  className="text-yellow-300 text-xl font-bold mb-3 bg-black/20 px-4 py-1.5 rounded-full"
+                >
+                  {lastResult.speedLabel}
+                </motion.div>
+              )}
               <motion.div 
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.4, type: 'spring' }}
-                className="bg-black/20 px-8 py-4 rounded-2xl text-2xl font-bold"
+                className="bg-black/20 px-8 py-4 rounded-2xl"
               >
-                {lastResult.isCorrect ? `+${lastResult.score - (player?.score || 0)}` : '0'} points
+                <div className="text-2xl font-bold">+{lastResult.pointsEarned || 0} points</div>
+                {(lastResult.speedBonus ?? 0) > 0 && (
+                  <div className="text-yellow-300 text-sm font-semibold mt-1">
+                    Includes +{lastResult.speedBonus} speed bonus!
+                  </div>
+                )}
               </motion.div>
             </motion.div>
           )}

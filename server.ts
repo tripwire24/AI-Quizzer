@@ -8,6 +8,13 @@ const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
+// Speed bonus labels for fastest correct answers
+const SPEED_LABELS = [
+  { label: '⚡ Lightning Fast', bonus: 200 },
+  { label: '🤠 Quick Draw', bonus: 150 },
+  { label: '🎯 Sharpshooter', bonus: 100 },
+];
+
 // In-memory game state
 interface Player {
   id: string;
@@ -17,6 +24,10 @@ interface Player {
   score: number;
   hasAnswered: boolean;
   lastAnswerCorrect: boolean;
+  answerOrder?: number;
+  correctOrder?: number;
+  speedLabel?: string;
+  speedBonus?: number;
 }
 
 interface Question {
@@ -34,9 +45,25 @@ interface GameSession {
   questions: Question[];
   currentQuestionIndex: number;
   timer: number;
+  answerCount: number;
+  correctCount: number;
 }
 
 const sessions: Record<string, GameSession> = {};
+
+/** Reset per-question answer tracking for all players */
+function resetPlayerAnswerState(session: GameSession) {
+  session.answerCount = 0;
+  session.correctCount = 0;
+  Object.values(session.players).forEach(p => {
+    p.hasAnswered = false;
+    p.lastAnswerCorrect = false;
+    p.answerOrder = undefined;
+    p.correctOrder = undefined;
+    p.speedLabel = undefined;
+    p.speedBonus = undefined;
+  });
+}
 
 app.prepare().then(() => {
   const expressApp = express();
@@ -63,6 +90,8 @@ app.prepare().then(() => {
         questions,
         currentQuestionIndex: 0,
         timer: 0,
+        answerCount: 0,
+        correctCount: 0,
       };
       socket.join(pin);
       socket.emit('game_created', pin);
@@ -94,10 +123,10 @@ app.prepare().then(() => {
 
       session.players[socket.id] = player;
       socket.join(pin);
-      
+
       // Notify player they joined
       socket.emit('joined_game', { pin, player });
-      
+
       // Notify host that a player joined
       io.to(session.hostSocketId).emit('player_joined', Object.values(session.players));
     });
@@ -108,12 +137,7 @@ app.prepare().then(() => {
       if (session && session.hostSocketId === socket.id) {
         session.status = 'question_active';
         session.currentQuestionIndex = 0;
-        
-        // Reset player answer states
-        Object.values(session.players).forEach(p => {
-          p.hasAnswered = false;
-          p.lastAnswerCorrect = false;
-        });
+        resetPlayerAnswerState(session);
 
         // Emit game_started to host so they know to navigate
         socket.emit('game_started', pin);
@@ -124,8 +148,9 @@ app.prepare().then(() => {
     socket.on('get_game_state', (pin) => {
       const session = sessions[pin];
       if (session && session.hostSocketId === socket.id) {
+        resetPlayerAnswerState(session);
         const currentQuestion = session.questions[session.currentQuestionIndex];
-        
+
         // Send current state to the host
         socket.emit('game_state', {
           status: session.status,
@@ -150,7 +175,7 @@ app.prepare().then(() => {
       const session = sessions[pin];
       if (session && session.hostSocketId === socket.id) {
         session.currentQuestionIndex++;
-        
+
         if (session.currentQuestionIndex >= session.questions.length) {
           session.status = 'finished';
           io.to(pin).emit('game_finished', Object.values(session.players).sort((a, b) => b.score - a.score));
@@ -164,11 +189,7 @@ app.prepare().then(() => {
             });
           } else {
             session.status = 'question_active';
-            // Reset player answer states
-            Object.values(session.players).forEach(p => {
-              p.hasAnswered = false;
-              p.lastAnswerCorrect = false;
-            });
+            resetPlayerAnswerState(session);
 
             const currentQuestion = session.questions[session.currentQuestionIndex];
             io.to(pin).emit('question_started', {
@@ -186,11 +207,7 @@ app.prepare().then(() => {
       const session = sessions[pin];
       if (session && session.hostSocketId === socket.id) {
         session.status = 'question_active';
-        // Reset player answer states
-        Object.values(session.players).forEach(p => {
-          p.hasAnswered = false;
-          p.lastAnswerCorrect = false;
-        });
+        resetPlayerAnswerState(session);
 
         const currentQuestion = session.questions[session.currentQuestionIndex];
         io.to(pin).emit('question_started', {
@@ -201,12 +218,27 @@ app.prepare().then(() => {
       }
     });
 
-    // Host shows leaderboard
+    // Host shows leaderboard (called after answer reveal finishes)
     socket.on('show_leaderboard', (pin) => {
       const session = sessions[pin];
       if (session && session.hostSocketId === socket.id) {
         session.status = 'leaderboard';
-        io.to(pin).emit('leaderboard_shown', Object.values(session.players).sort((a, b) => b.score - a.score));
+        const currentQuestion = session.questions[session.currentQuestionIndex];
+        const correctOption = currentQuestion.options.find(o => o.isCorrect);
+
+        const sortedPlayers = Object.values(session.players).sort((a, b) => b.score - a.score);
+        const speedWinners = Object.values(session.players)
+          .filter(p => p.speedLabel)
+          .sort((a, b) => (a.correctOrder || 99) - (b.correctOrder || 99))
+          .map(p => ({ nickname: p.nickname, avatar: p.avatar, label: p.speedLabel }));
+
+        io.to(pin).emit('leaderboard_shown', {
+          players: sortedPlayers,
+          correctAnswer: correctOption
+            ? { id: correctOption.id, text: correctOption.text, color: correctOption.color }
+            : null,
+          speedWinners,
+        });
       }
     });
 
@@ -220,15 +252,31 @@ app.prepare().then(() => {
 
       const currentQuestion = session.questions[session.currentQuestionIndex];
       const selectedOption = currentQuestion.options.find(o => o.id === answerId);
-      
+
       player.hasAnswered = true;
-      
+      session.answerCount++;
+      player.answerOrder = session.answerCount;
+
+      let pointsEarned = 0;
+
       if (selectedOption?.isCorrect) {
         player.lastAnswerCorrect = true;
-        // Calculate score based on time remaining (max 1000 points)
+        session.correctCount++;
+        player.correctOrder = session.correctCount;
+
+        // Base score: 500-1000 based on remaining time
         const timeRatio = timeRemaining / currentQuestion.timeLimit;
-        const points = Math.round(500 + (500 * timeRatio));
-        player.score += points;
+        pointsEarned = Math.round(500 + (500 * timeRatio));
+
+        // Speed bonus for first 3 correct answers
+        if (player.correctOrder <= SPEED_LABELS.length) {
+          const speedInfo = SPEED_LABELS[player.correctOrder - 1];
+          player.speedLabel = speedInfo.label;
+          player.speedBonus = speedInfo.bonus;
+          pointsEarned += speedInfo.bonus;
+        }
+
+        player.score += pointsEarned;
       } else {
         player.lastAnswerCorrect = false;
       }
@@ -236,13 +284,24 @@ app.prepare().then(() => {
       // Notify player of their result
       socket.emit('answer_result', {
         isCorrect: player.lastAnswerCorrect,
-        score: player.score
+        score: player.score,
+        pointsEarned,
+        speedLabel: player.speedLabel || null,
+        speedBonus: player.speedBonus || 0,
       });
 
-      // Notify host that someone answered
+      // Notify host with full player statuses
       io.to(session.hostSocketId).emit('player_answered', {
         totalAnswers: Object.values(session.players).filter(p => p.hasAnswered).length,
-        totalPlayers: Object.keys(session.players).length
+        totalPlayers: Object.keys(session.players).length,
+        playerStatuses: Object.values(session.players).map(p => ({
+          nickname: p.nickname,
+          avatar: p.avatar,
+          hasAnswered: p.hasAnswered,
+          answerOrder: p.answerOrder || 0,
+          isCorrect: p.hasAnswered ? p.lastAnswerCorrect : false,
+          speedLabel: p.speedLabel || null,
+        })),
       });
     });
 
