@@ -18,14 +18,11 @@ export default function HostLobby() {
   const router = useRouter();
   const pin = params.pin as string;
   const [players, setPlayers] = useState<Player[]>([]);
-  const [joinUrl, setJoinUrl] = useState<string>('');
+  const [joinUrl] = useState<string>(() => (typeof window !== 'undefined' ? window.location.origin : ''));
   const [copied, setCopied] = useState(false);
   const [connected, setConnected] = useState(true);
 
   useEffect(() => {
-    // Get the full origin (protocol + host)
-    const origin = window.location.origin;
-    setJoinUrl(origin);
     const socket = getSocket();
 
     // Track connection status
@@ -33,7 +30,7 @@ export default function HostLobby() {
     const onDisconnect = () => setConnected(false);
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
-    setConnected(socket.connected);
+    const syncConnection = window.setTimeout(() => setConnected(socket.connected), 0);
 
     // Keep-alive ping every 4 minutes to prevent Render free-tier spin-down
     const keepAlive = setInterval(() => {
@@ -50,6 +47,7 @@ export default function HostLobby() {
     });
 
     return () => {
+      window.clearTimeout(syncConnection);
       clearInterval(keepAlive);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);

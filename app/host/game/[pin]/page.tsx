@@ -5,11 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { getSocket } from '@/lib/socket';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { Triangle, Square, Circle, Diamond } from 'lucide-react';
+import { ArrowRight, MessageSquare, Triangle, Square, Circle, Diamond } from 'lucide-react';
 
 interface Question {
   id: string;
+  type?: 'choice' | 'open';
   text: string;
+  facilitatorNote?: string;
+  placeholder?: string;
   options: { id: string; text: string; color: string; isCorrect: boolean }[];
   timeLimit: number;
 }
@@ -33,6 +36,17 @@ interface PlayerStatus {
   answerOrder: number;
   isCorrect: boolean;
   speedLabel: string | null;
+}
+
+interface OpenSubmission {
+  id: string;
+  questionId: string;
+  playerId: string;
+  socketId: string;
+  nickname: string;
+  avatar: string;
+  text: string;
+  createdAt: string;
 }
 
 // Music tracks — drop .mp3 files into /public/music/
@@ -69,9 +83,11 @@ export default function HostGame() {
   const [leaderboard, setLeaderboard] = useState<Player[]>([]);
   const [questionsRemaining, setQuestionsRemaining] = useState(0);
   const [playerStatuses, setPlayerStatuses] = useState<PlayerStatus[]>([]);
+  const [openResponses, setOpenResponses] = useState<OpenSubmission[]>([]);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const revealShownRef = useRef(false);
+  const questionTypeRef = useRef<'choice' | 'open'>('choice');
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const lastTrackRef = useRef(-1);
 
@@ -125,10 +141,12 @@ export default function HostGame() {
     /* initial game state */
     socket.on(
       'game_state',
-      ({ questionIndex: qIdx, question, totalQuestions: total, players }: {
+      ({ questionIndex: qIdx, question, totalQuestions: total, players, openResponses: responses = [] }: {
         status: string; questionIndex: number; question: Question; totalQuestions: number; players: Player[];
+        openResponses?: OpenSubmission[];
         leaderboard: Player[];
       }) => {
+        questionTypeRef.current = question.type || 'choice';
         setStatus('question_active');
         setCurrentQuestion(question);
         setQuestionIndex(qIdx);
@@ -136,8 +154,9 @@ export default function HostGame() {
         setTimeRemaining(question.timeLimit);
         setTotalPlayers(players.length);
         setAnswersCount(0);
+        setOpenResponses(responses);
         revealShownRef.current = false;
-        playMusic();
+        if ((question.type || 'choice') === 'choice') playMusic();
         setPlayerStatuses(
           players.map((p) => ({
             nickname: p.nickname,
@@ -165,17 +184,19 @@ export default function HostGame() {
     /* new question */
     socket.on(
       'question_started',
-      ({ questionIndex: qIdx, question, totalQuestions: total }: {
-        questionIndex: number; question: Question; totalQuestions: number;
+      ({ questionIndex: qIdx, question, totalQuestions: total, openResponses: responses = [] }: {
+        questionIndex: number; question: Question; totalQuestions: number; openResponses?: OpenSubmission[];
       }) => {
+        questionTypeRef.current = question.type || 'choice';
         setStatus('question_active');
         setCurrentQuestion(question);
         setQuestionIndex(qIdx);
         setTotalQuestions(total);
         setTimeRemaining(question.timeLimit);
         setAnswersCount(0);
+        setOpenResponses(responses);
         revealShownRef.current = false;
-        playMusic();
+        if ((question.type || 'choice') === 'choice') playMusic();
         setPlayerStatuses((prev) =>
           prev.map((p) => ({ ...p, hasAnswered: false, answerOrder: 0, isCorrect: false, speedLabel: null })),
         );
@@ -202,9 +223,20 @@ export default function HostGame() {
         setAnswersCount(totalAnswers);
         setTotalPlayers(tp);
         if (ps) setPlayerStatuses(ps);
-        if (totalAnswers === tp) {
+        if (questionTypeRef.current === 'choice' && totalAnswers === tp) {
           emitShowLeaderboard();
         }
+      },
+    );
+
+    socket.on(
+      'open_responses_updated',
+      ({ responses, submittedPlayers, totalPlayers: tp }: {
+        responses: OpenSubmission[]; submittedPlayers: number; totalPlayers: number;
+      }) => {
+        setOpenResponses(responses);
+        setAnswersCount(submittedPlayers);
+        setTotalPlayers(tp);
       },
     );
 
@@ -262,6 +294,7 @@ export default function HostGame() {
       socket.off('game_state');
       socket.off('question_started');
       socket.off('player_answered');
+      socket.off('open_responses_updated');
       socket.off('answer_reveal');
       socket.off('leaderboard_shown');
       socket.off('mid_game_leaderboard');
@@ -272,7 +305,7 @@ export default function HostGame() {
 
   /* ── Timer-zero → tell server to show leaderboard ── */
   useEffect(() => {
-    if (timeRemaining === 0 && status === 'question_active' && !revealShownRef.current) {
+    if (timeRemaining === 0 && status === 'question_active' && questionTypeRef.current === 'choice' && !revealShownRef.current) {
       revealShownRef.current = true;
       if (timerRef.current) clearInterval(timerRef.current);
       getSocket().emit('show_leaderboard', pin);
@@ -347,7 +380,7 @@ export default function HostGame() {
                 animate={{ x: 0, opacity: 1 }}
                 className="text-xl font-bold text-gray-400"
               >
-                Question {questionIndex + 1} of {totalQuestions}
+                {(currentQuestion.type || 'choice') === 'open' ? 'Activity' : 'Question'} {questionIndex + 1} of {totalQuestions}
               </motion.div>
               <motion.div
                 key={timeRemaining}
@@ -362,7 +395,7 @@ export default function HostGame() {
                 animate={{ x: 0, opacity: 1 }}
                 className="text-xl font-bold text-gray-400"
               >
-                {answersCount} / {totalPlayers} Answers
+                {answersCount} / {totalPlayers} {(currentQuestion.type || 'choice') === 'open' ? 'Responses' : 'Answers'}
               </motion.div>
             </div>
 
@@ -430,39 +463,111 @@ export default function HostGame() {
                 </div>
               </div>
 
-              {/* ── Question + Options ── */}
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex-1 flex items-center justify-center px-8 py-4 min-h-0">
-                  <motion.h1
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 }}
-                    className="text-4xl md:text-5xl lg:text-6xl font-black text-center text-white leading-tight max-w-5xl"
-                  >
-                    {currentQuestion.text}
-                  </motion.h1>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 px-6 pb-6 shrink-0">
-                  {currentQuestion.options.map((option, idx) => {
-                    const Icon = getIcon(idx);
-                    return (
-                      <motion.div
-                        key={option.id}
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 + idx * 0.08, type: 'spring', stiffness: 300 }}
-                        className={`${option.color} rounded-2xl shadow-lg flex items-center p-5 md:p-6 gap-4 ring-2 ring-white/10 hover:ring-white/30 transition-all`}
+              {(currentQuestion.type || 'choice') === 'open' ? (
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="shrink-0 px-8 py-6 border-b border-gray-800">
+                    <div className="flex items-start gap-4">
+                      <div className="rounded-2xl bg-indigo-500/20 p-4 text-indigo-200 ring-1 ring-indigo-400/30">
+                        <MessageSquare className="h-8 w-8" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <motion.h1
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.15 }}
+                          className="text-3xl md:text-4xl font-black text-white leading-tight"
+                        >
+                          {currentQuestion.text}
+                        </motion.h1>
+                        {currentQuestion.facilitatorNote && (
+                          <p className="mt-3 max-w-4xl text-base leading-relaxed text-gray-400">
+                            {currentQuestion.facilitatorNote}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleNext}
+                        className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-4 text-lg font-bold text-white shadow-xl transition-colors hover:bg-indigo-500"
                       >
-                        <Icon className="w-10 h-10 text-white fill-white shrink-0 opacity-80" />
-                        <span className="text-white text-xl md:text-2xl font-bold flex-1 leading-snug">
-                          {option.text}
-                        </span>
-                      </motion.div>
-                    );
-                  })}
+                        Next
+                        <ArrowRight className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-h-0 overflow-y-auto p-6">
+                    {openResponses.length === 0 ? (
+                      <div className="flex h-full items-center justify-center rounded-3xl border-2 border-dashed border-gray-700 bg-gray-800/30 text-center">
+                        <div>
+                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-800 text-gray-500">
+                            <MessageSquare className="h-8 w-8" />
+                          </div>
+                          <h2 className="text-2xl font-black text-gray-400">Waiting for responses</h2>
+                          <p className="mt-2 text-gray-500">Participants add comments from their device.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {openResponses.slice().reverse().map((response, idx) => (
+                          <motion.article
+                            key={response.id}
+                            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ delay: Math.min(idx * 0.03, 0.35) }}
+                            className="rounded-2xl bg-white p-5 text-gray-900 shadow-xl ring-1 ring-black/10"
+                          >
+                            <div className="mb-3 flex items-center gap-3">
+                              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-50 text-2xl">
+                                {response.avatar}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-black text-indigo-700">{response.nickname}</div>
+                                <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">Workshop response</div>
+                              </div>
+                            </div>
+                            <p className="whitespace-pre-wrap text-lg font-semibold leading-snug text-gray-900">
+                              {response.text}
+                            </p>
+                          </motion.article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex-1 flex items-center justify-center px-8 py-4 min-h-0">
+                    <motion.h1
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-4xl md:text-5xl lg:text-6xl font-black text-center text-white leading-tight max-w-5xl"
+                    >
+                      {currentQuestion.text}
+                    </motion.h1>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 px-6 pb-6 shrink-0">
+                    {currentQuestion.options.map((option, idx) => {
+                      const Icon = getIcon(idx);
+                      return (
+                        <motion.div
+                          key={option.id}
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 + idx * 0.08, type: 'spring', stiffness: 300 }}
+                          className={`${option.color} rounded-2xl shadow-lg flex items-center p-5 md:p-6 gap-4 ring-2 ring-white/10 hover:ring-white/30 transition-all`}
+                        >
+                          <Icon className="w-10 h-10 text-white fill-white shrink-0 opacity-80" />
+                          <span className="text-white text-xl md:text-2xl font-bold flex-1 leading-snug">
+                            {option.text}
+                          </span>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { getSocket } from '@/lib/socket';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Triangle, Square, Circle, Diamond } from 'lucide-react';
+import { Send, Triangle, Square, Circle, Diamond } from 'lucide-react';
 import { useUserStore } from '@/store/useUserStore';
 
 interface Question {
   id: string;
+  type?: 'choice' | 'open';
   text: string;
+  facilitatorNote?: string;
+  placeholder?: string;
   options: { id: string; text: string; color: string; isCorrect: boolean }[];
   timeLimit: number;
 }
@@ -20,6 +23,17 @@ interface Player {
   nickname: string;
   avatar: string;
   score: number;
+}
+
+interface OpenSubmission {
+  id: string;
+  questionId: string;
+  playerId: string;
+  socketId: string;
+  nickname: string;
+  avatar: string;
+  text: string;
+  createdAt: string;
 }
 
 export default function PlayGame() {
@@ -39,6 +53,8 @@ export default function PlayGame() {
   const [error, setError] = useState<string | null>(null);
   const [leaderboard, setLeaderboard] = useState<Player[]>([]);
   const [myRank, setMyRank] = useState<number>(0);
+  const [openText, setOpenText] = useState('');
+  const [openResponses, setOpenResponses] = useState<OpenSubmission[]>([]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -63,11 +79,13 @@ export default function PlayGame() {
       setStatus('connecting');
     });
 
-    socket.on('question_started', ({ question, totalQuestions }) => {
+    socket.on('question_started', ({ question, openResponses: responses = [] }) => {
       setStatus('question_active');
       setCurrentQuestion(question);
       setTimeRemaining(question.timeLimit);
       setLastResult(null);
+      setOpenText('');
+      setOpenResponses(responses);
     });
 
     socket.on('answer_result', (result) => {
@@ -90,6 +108,10 @@ export default function PlayGame() {
       if (myData) {
         setPlayer(prev => prev ? { ...prev, score: myData.score } : null);
       }
+    });
+
+    socket.on('open_responses_updated', ({ responses }: { responses: OpenSubmission[] }) => {
+      setOpenResponses(responses);
     });
 
     socket.on('mid_game_leaderboard', ({ leaderboard: players }) => {
@@ -132,6 +154,7 @@ export default function PlayGame() {
       socket.off('answer_result');
       socket.off('answer_reveal');
       socket.off('leaderboard_shown');
+      socket.off('open_responses_updated');
       socket.off('mid_game_leaderboard');
       socket.off('game_finished');
       socket.off('host_disconnected');
@@ -155,6 +178,13 @@ export default function PlayGame() {
     const socket = getSocket();
     socket.emit('submit_answer', { pin, answerId, timeRemaining });
     setStatus('answered');
+  };
+
+  const handleOpenSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (status !== 'question_active' || !openText.trim()) return;
+    getSocket().emit('submit_open_response', { pin, text: openText });
+    setOpenText('');
   };
 
   if (error) {
@@ -267,26 +297,76 @@ export default function PlayGame() {
                 </p>
               </div>
 
-              {/* Answer buttons */}
-              <div className="grid grid-cols-2 gap-3 flex-1 p-3 min-h-0">
-                {currentQuestion.options.map((option, idx) => {
-                  const Icon = idx === 0 ? Triangle : idx === 1 ? Diamond : idx === 2 ? Circle : Square;
-                  return (
-                    <motion.button
-                      key={option.id}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: idx * 0.08, type: 'spring', stiffness: 300 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => handleAnswer(option.id)}
-                      className={`${option.color} rounded-2xl shadow-lg flex flex-col items-center justify-center gap-2 ring-2 ring-white/10 active:ring-white/40 transition-all p-3`}
-                    >
-                      <Icon className="w-10 h-10 text-white fill-white opacity-90" />
-                      <span className="text-white text-sm font-bold leading-tight text-center line-clamp-2">{option.text}</span>
-                    </motion.button>
-                  );
-                })}
-              </div>
+              {(currentQuestion.type || 'choice') === 'open' ? (
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+                  <form onSubmit={handleOpenSubmit} className="bg-gray-800 rounded-2xl p-3 ring-1 ring-white/10">
+                    <textarea
+                      value={openText}
+                      onChange={(event) => setOpenText(event.target.value)}
+                      placeholder={currentQuestion.placeholder || 'Add your response...'}
+                      className="w-full min-h-32 resize-none rounded-xl bg-gray-950/70 border border-gray-700 text-white placeholder-gray-500 p-4 text-base leading-relaxed outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/30"
+                      maxLength={600}
+                    />
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <span className="text-xs font-semibold text-gray-500">{openText.length}/600</span>
+                      <button
+                        type="submit"
+                        disabled={!openText.trim()}
+                        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-950/40 transition-all active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
+                      >
+                        <Send className="h-4 w-4" />
+                        Add to board
+                      </button>
+                    </div>
+                  </form>
+
+                  <section className="rounded-2xl bg-gray-800/70 p-3 ring-1 ring-white/10">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h2 className="text-sm font-black uppercase tracking-wider text-gray-400">Live board</h2>
+                      <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-bold text-indigo-200">
+                        {openResponses.length} responses
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {openResponses.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-gray-700 p-4 text-center text-sm text-gray-500">
+                          Responses will appear here as the room adds them.
+                        </p>
+                      ) : (
+                        openResponses.slice().reverse().map((response) => (
+                          <article key={response.id} className="rounded-xl bg-gray-950/60 p-3 ring-1 ring-white/5">
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="text-lg">{response.avatar}</span>
+                              <span className="text-sm font-bold text-indigo-200">{response.nickname}</span>
+                            </div>
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-100">{response.text}</p>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 flex-1 p-3 min-h-0">
+                  {currentQuestion.options.map((option, idx) => {
+                    const Icon = idx === 0 ? Triangle : idx === 1 ? Diamond : idx === 2 ? Circle : Square;
+                    return (
+                      <motion.button
+                        key={option.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.08, type: 'spring', stiffness: 300 }}
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() => handleAnswer(option.id)}
+                        className={`${option.color} rounded-2xl shadow-lg flex flex-col items-center justify-center gap-2 ring-2 ring-white/10 active:ring-white/40 transition-all p-3`}
+                      >
+                        <Icon className="w-10 h-10 text-white fill-white opacity-90" />
+                        <span className="text-white text-sm font-bold leading-tight text-center line-clamp-2">{option.text}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
           )}
 

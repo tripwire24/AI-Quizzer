@@ -16,6 +16,7 @@ export default function CreateQuizPage() {
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: 'q1',
+      type: 'choice',
       text: '',
       timeLimit: 30,
       options: [
@@ -32,6 +33,7 @@ export default function CreateQuizPage() {
       ...questions,
       {
         id: `q${Date.now()}`,
+        type: 'choice',
         text: '',
         timeLimit: 30,
         options: [

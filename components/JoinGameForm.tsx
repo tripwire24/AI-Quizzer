@@ -19,8 +19,11 @@ export function JoinGameForm() {
   const router = useRouter();
 
   useEffect(() => {
-    setLocalNickname(username);
-    setSelectedAvatar(avatar || '😊');
+    const timer = window.setTimeout(() => {
+      setLocalNickname(username);
+      setSelectedAvatar(avatar || '😊');
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [username, avatar]);
 
   const handleSubmit = (e: React.FormEvent) => {

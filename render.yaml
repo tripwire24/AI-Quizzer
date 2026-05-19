@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ai-quizzer
+    name: youngshand-live-lab
     runtime: node
     plan: free
     buildCommand: npm install && npm run build

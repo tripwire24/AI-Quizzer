@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSocket } from '@/lib/socket';
 import { useQuizStore, Question } from '@/store/useQuizStore';
+import { YOUNGSHAND_WORKSHOP_PACKS } from '@/lib/workshopActivities';
 import { Plus, Play, Trash2 } from 'lucide-react';
 
 const DEFAULT_QUESTIONS: Question[] = [
@@ -60,7 +61,7 @@ export default function HostDashboard() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900">Your Quizzes</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">YoungShand Workshop Packs</h2>
             <button
               onClick={() => router.push('/create')}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold rounded-xl transition-colors"
@@ -71,16 +72,36 @@ export default function HostDashboard() {
           </div>
           
           <div className="grid gap-6">
+            {YOUNGSHAND_WORKSHOP_PACKS.map((pack) => (
+              <div key={pack.id} className="border border-indigo-100 bg-indigo-50/40 rounded-xl p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:border-indigo-300 transition-colors group">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{pack.title}</h3>
+                  <p className="text-gray-600 mb-2 max-w-2xl">{pack.description}</p>
+                  <p className="text-sm text-indigo-600 font-semibold">
+                    {pack.questions.length} activities • live responses and scored questions
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleCreateGame(pack.questions)}
+                  disabled={isCreating}
+                  className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-70"
+                >
+                  <Play className="w-5 h-5" />
+                  {isCreating ? 'Creating...' : 'Host'}
+                </button>
+              </div>
+            ))}
+
             {/* Default Quiz */}
-            <div className="border border-gray-200 rounded-xl p-6 flex justify-between items-center hover:border-indigo-300 transition-colors group">
+            <div className="border border-gray-200 rounded-xl p-6 flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:border-indigo-300 transition-colors group">
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">AI Concepts Basics</h3>
-                <p className="text-gray-500">{DEFAULT_QUESTIONS.length} Questions • 20s per question</p>
+                <p className="text-gray-500">{DEFAULT_QUESTIONS.length} questions • scored quiz demo</p>
               </div>
               <button
                 onClick={() => handleCreateGame(DEFAULT_QUESTIONS)}
                 disabled={isCreating}
-                className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-70"
+                className="flex items-center justify-center gap-2 px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-70"
               >
                 <Play className="w-5 h-5" />
                 {isCreating ? 'Creating...' : 'Host'}

@@ -32,9 +32,23 @@ interface Player {
 
 interface Question {
   id: string;
+  type?: 'choice' | 'open';
   text: string;
+  facilitatorNote?: string;
+  placeholder?: string;
   options: { id: string; text: string; color: string; isCorrect: boolean }[];
   timeLimit: number;
+}
+
+interface OpenSubmission {
+  id: string;
+  questionId: string;
+  playerId: string;
+  socketId: string;
+  nickname: string;
+  avatar: string;
+  text: string;
+  createdAt: string;
 }
 
 interface GameSession {
@@ -47,6 +61,7 @@ interface GameSession {
   timer: number;
   answerCount: number;
   correctCount: number;
+  openResponses: Record<string, OpenSubmission[]>;
 }
 
 const sessions: Record<string, GameSession> = {};
@@ -92,6 +107,7 @@ app.prepare().then(() => {
         timer: 0,
         answerCount: 0,
         correctCount: 0,
+        openResponses: {},
       };
       socket.join(pin);
       socket.emit('game_created', pin);
@@ -158,6 +174,7 @@ app.prepare().then(() => {
           question: currentQuestion,
           totalQuestions: session.questions.length,
           players: Object.values(session.players),
+          openResponses: session.openResponses[currentQuestion.id] || [],
           leaderboard: Object.values(session.players).sort((a, b) => b.score - a.score)
         });
 
@@ -165,7 +182,8 @@ app.prepare().then(() => {
         io.to(pin).emit('question_started', {
           questionIndex: session.currentQuestionIndex,
           question: currentQuestion,
-          totalQuestions: session.questions.length
+          totalQuestions: session.questions.length,
+          openResponses: session.openResponses[currentQuestion.id] || [],
         });
       }
     });
@@ -195,7 +213,8 @@ app.prepare().then(() => {
             io.to(pin).emit('question_started', {
               questionIndex: session.currentQuestionIndex,
               question: currentQuestion,
-              totalQuestions: session.questions.length
+              totalQuestions: session.questions.length,
+              openResponses: session.openResponses[currentQuestion.id] || [],
             });
           }
         }
@@ -213,7 +232,8 @@ app.prepare().then(() => {
         io.to(pin).emit('question_started', {
           questionIndex: session.currentQuestionIndex,
           question: currentQuestion,
-          totalQuestions: session.questions.length
+          totalQuestions: session.questions.length,
+          openResponses: session.openResponses[currentQuestion.id] || [],
         });
       }
     });
@@ -223,6 +243,7 @@ app.prepare().then(() => {
       const session = sessions[pin];
       if (session && session.hostSocketId === socket.id) {
         const currentQuestion = session.questions[session.currentQuestionIndex];
+        if ((currentQuestion.type || 'choice') === 'open') return;
         const correctOption = currentQuestion.options.find(o => o.isCorrect);
 
         const speedWinners = Object.values(session.players)
@@ -260,6 +281,7 @@ app.prepare().then(() => {
       if (!player || player.hasAnswered) return;
 
       const currentQuestion = session.questions[session.currentQuestionIndex];
+      if ((currentQuestion.type || 'choice') !== 'choice') return;
       const selectedOption = currentQuestion.options.find(o => o.id === answerId);
 
       player.hasAnswered = true;
@@ -310,6 +332,66 @@ app.prepare().then(() => {
           answerOrder: p.answerOrder || 0,
           isCorrect: p.hasAnswered ? p.lastAnswerCorrect : false,
           speedLabel: p.speedLabel || null,
+        })),
+      });
+    });
+
+    // Player submits an open workshop response
+    socket.on('submit_open_response', ({ pin, text }) => {
+      const session = sessions[pin];
+      if (!session || session.status !== 'question_active') return;
+
+      const player = session.players[socket.id];
+      if (!player) return;
+
+      const currentQuestion = session.questions[session.currentQuestionIndex];
+      if ((currentQuestion.type || 'choice') !== 'open') return;
+
+      const cleanText = typeof text === 'string' ? text.trim().slice(0, 600) : '';
+      if (!cleanText) return;
+
+      const existingResponses = session.openResponses[currentQuestion.id] || [];
+      const hadAnswered = player.hasAnswered;
+
+      const response: OpenSubmission = {
+        id: `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        questionId: currentQuestion.id,
+        playerId: player.id,
+        socketId: socket.id,
+        nickname: player.nickname,
+        avatar: player.avatar,
+        text: cleanText,
+        createdAt: new Date().toISOString(),
+      };
+
+      session.openResponses[currentQuestion.id] = [...existingResponses, response];
+      player.hasAnswered = true;
+      if (!hadAnswered) {
+        session.answerCount++;
+        player.answerOrder = session.answerCount;
+      }
+
+      const responses = session.openResponses[currentQuestion.id];
+      const submittedPlayers = new Set(responses.map(r => r.playerId)).size;
+
+      socket.emit('open_response_received', response);
+      io.to(pin).emit('open_responses_updated', {
+        questionId: currentQuestion.id,
+        responses,
+        submittedPlayers,
+        totalPlayers: Object.keys(session.players).length,
+      });
+
+      io.to(session.hostSocketId).emit('player_answered', {
+        totalAnswers: submittedPlayers,
+        totalPlayers: Object.keys(session.players).length,
+        playerStatuses: Object.values(session.players).map(p => ({
+          nickname: p.nickname,
+          avatar: p.avatar,
+          hasAnswered: p.hasAnswered,
+          answerOrder: p.answerOrder || 0,
+          isCorrect: false,
+          speedLabel: null,
         })),
       });
     });

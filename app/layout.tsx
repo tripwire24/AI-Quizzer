@@ -1,17 +1,14 @@
 import type {Metadata} from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css'; // Global styles
 
-const inter = Inter({ subsets: ['latin'] });
-
 export const metadata: Metadata = {
-  title: 'AI Quizzer',
-  description: 'Interactive presenting app for AI concepts',
+  title: 'YoungShand Live Lab',
+  description: 'Interactive workshop board and quiz game for YoungShand training',
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="en" className={inter.className}>
+    <html lang="en">
       <body suppressHydrationWarning>{children}</body>
     </html>
   );

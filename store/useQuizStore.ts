@@ -3,7 +3,10 @@ import { persist } from 'zustand/middleware';
 
 export interface Question {
   id: string;
+  type?: 'choice' | 'open';
   text: string;
+  facilitatorNote?: string;
+  placeholder?: string;
   options: { id: string; text: string; color: string; isCorrect: boolean }[];
   timeLimit: number;
 }
