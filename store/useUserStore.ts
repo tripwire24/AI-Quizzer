@@ -18,6 +18,23 @@ interface UserState {
   addHistory: (game: GameHistory) => void;
 }
 
+const STORAGE_KEY = 'youngshand-live-lab-user';
+
+function sanitizeHistory(value: unknown): GameHistory[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is GameHistory => {
+    if (!entry || typeof entry !== 'object') return false;
+    const game = entry as Partial<GameHistory>;
+    return (
+      typeof game.pin === 'string' &&
+      typeof game.date === 'string' &&
+      typeof game.score === 'number' &&
+      typeof game.rank === 'number' &&
+      typeof game.totalPlayers === 'number'
+    );
+  });
+}
+
 export const useUserStore = create<UserState>()(
   persist(
     (set) => ({
@@ -29,7 +46,16 @@ export const useUserStore = create<UserState>()(
       addHistory: (game) => set((state) => ({ history: [game, ...state.history] })),
     }),
     {
-      name: 'ai-quizzer-user',
+      name: STORAGE_KEY,
+      merge: (persistedState, currentState) => {
+        const saved = persistedState as Partial<UserState> | undefined;
+        return {
+          ...currentState,
+          username: typeof saved?.username === 'string' ? saved.username : currentState.username,
+          avatar: typeof saved?.avatar === 'string' && saved.avatar ? saved.avatar : currentState.avatar,
+          history: sanitizeHistory(saved?.history),
+        };
+      },
     }
   )
 );

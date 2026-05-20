@@ -26,6 +26,35 @@ interface QuizState {
   deleteQuiz: (id: string) => void;
 }
 
+const STORAGE_KEY = 'youngshand-live-lab-quizzes';
+
+function isQuestion(value: unknown): value is Question {
+  if (!value || typeof value !== 'object') return false;
+  const question = value as Partial<Question>;
+  return (
+    typeof question.id === 'string' &&
+    typeof question.text === 'string' &&
+    Array.isArray(question.options) &&
+    typeof question.timeLimit === 'number'
+  );
+}
+
+function sanitizeQuizzes(value: unknown): Quiz[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((quiz): quiz is Quiz => {
+    if (!quiz || typeof quiz !== 'object') return false;
+    const candidate = quiz as Partial<Quiz>;
+    return (
+      typeof candidate.id === 'string' &&
+      typeof candidate.title === 'string' &&
+      typeof candidate.description === 'string' &&
+      Array.isArray(candidate.questions) &&
+      candidate.questions.every(isQuestion) &&
+      typeof candidate.createdAt === 'string'
+    );
+  });
+}
+
 export const useQuizStore = create<QuizState>()(
   persist(
     (set) => ({
@@ -39,7 +68,14 @@ export const useQuizStore = create<QuizState>()(
       })),
     }),
     {
-      name: 'ai-quizzer-quizzes',
+      name: STORAGE_KEY,
+      merge: (persistedState, currentState) => {
+        const saved = persistedState as Partial<QuizState> | undefined;
+        return {
+          ...currentState,
+          quizzes: sanitizeQuizzes(saved?.quizzes),
+        };
+      },
     }
   )
 );

@@ -34,6 +34,7 @@ export default function HostDashboard() {
   const router = useRouter();
   const { quizzes, deleteQuiz } = useQuizStore();
   const [isCreating, setIsCreating] = useState(false);
+  const savedQuizzes = Array.isArray(quizzes) ? quizzes.filter((quiz) => Array.isArray(quiz.questions)) : [];
 
   const handleCreateGame = (questions: Question[]) => {
     setIsCreating(true);
@@ -109,7 +110,7 @@ export default function HostDashboard() {
             </div>
 
             {/* Custom Quizzes */}
-            {quizzes.map((quiz) => (
+            {savedQuizzes.map((quiz) => (
               <div key={quiz.id} className="border border-gray-200 rounded-xl p-6 flex justify-between items-center hover:border-indigo-300 transition-colors group">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{quiz.title}</h3>
@@ -136,7 +137,7 @@ export default function HostDashboard() {
               </div>
             ))}
             
-            {quizzes.length === 0 && (
+            {savedQuizzes.length === 0 && (
               <div 
                 onClick={() => router.push('/create')}
                 className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center text-gray-500 hover:bg-gray-50 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer font-medium"
