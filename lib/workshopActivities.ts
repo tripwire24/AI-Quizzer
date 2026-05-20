@@ -6,19 +6,19 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
   {
     id: 'youngshand-prove-it-sprint',
     title: 'YoungShand Prove-It Sprint',
-    description: 'A live workshop quiz for turning AI from a quick answer machine into a better evidence and decision support tool.',
+    description: 'A sharper workshop quiz on evidence, judgement, and using AI safely in agency decisions.',
     createdAt: '2026-05-20T00:00:00.000Z',
     questions: [
       {
         id: 'pi-choice-1',
         type: 'choice',
         text: 'Which YoungShand AI use case needs the strongest proof layer before it is shared?',
-        facilitatorNote: 'Use this as the room warm-up. The point is to separate low-risk drafting from work that affects spend, advice, or client confidence.',
+        facilitatorNote: 'Use this as the warm-up. Separate low-risk drafting from work that affects spend, advice, or client confidence.',
         options: [
           { id: 'o1', text: 'Checking spelling in an internal note', color: COLORS[0], isCorrect: false },
           { id: 'o2', text: 'Suggesting a spend recommendation for a client plan', color: COLORS[1], isCorrect: true },
-          { id: 'o3', text: 'Making three rough headline territories', color: COLORS[2], isCorrect: false },
-          { id: 'o4', text: 'Renaming a workshop exercise', color: COLORS[3], isCorrect: false },
+          { id: 'o3', text: 'Drafting alternate workshop names', color: COLORS[2], isCorrect: false },
+          { id: 'o4', text: 'Summarising a public blog post for personal reading', color: COLORS[3], isCorrect: false },
         ],
         timeLimit: 30,
       },
@@ -29,9 +29,9 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
         facilitatorNote: 'Reinforce that AI output needs a trail: sources, assumptions, criteria, and a clear handoff to human judgement.',
         options: [
           { id: 'o1', text: 'Sound confident and use polished wording', color: COLORS[0], isCorrect: false },
-          { id: 'o2', text: 'Show sources, assumptions, and decision criteria', color: COLORS[1], isCorrect: true },
+          { id: 'o2', text: 'Show sources, assumptions, criteria, and limits', color: COLORS[1], isCorrect: true },
           { id: 'o3', text: 'Avoid disagreement so the answer is clean', color: COLORS[2], isCorrect: false },
-          { id: 'o4', text: 'Make the recommendation as short as possible', color: COLORS[3], isCorrect: false },
+          { id: 'o4', text: 'Hide caveats so the recommendation feels senior', color: COLORS[3], isCorrect: false },
         ],
         timeLimit: 30,
       },
@@ -42,7 +42,7 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
         facilitatorNote: 'Good AI proof tasks are specific decisions, not generic topics.',
         options: [
           { id: 'o1', text: 'What is the future of media?', color: COLORS[0], isCorrect: false },
-          { id: 'o2', text: 'Meta vs TikTok for this audience and objective', color: COLORS[1], isCorrect: true },
+          { id: 'o2', text: 'Meta vs TikTok for this audience, objective, and budget', color: COLORS[1], isCorrect: true },
           { id: 'o3', text: 'Make the strategy sound more senior', color: COLORS[2], isCorrect: false },
           { id: 'o4', text: 'Tell us something interesting about the category', color: COLORS[3], isCorrect: false },
         ],
@@ -56,39 +56,52 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
         options: [
           { id: 'o1', text: 'Ask for evidence, assumptions, and alternatives', color: COLORS[0], isCorrect: true },
           { id: 'o2', text: 'Paste it into the deck and tighten the wording', color: COLORS[1], isCorrect: false },
-          { id: 'o3', text: 'Ask the same question again until it agrees', color: COLORS[2], isCorrect: false },
-          { id: 'o4', text: 'Remove all caveats so the answer feels decisive', color: COLORS[3], isCorrect: false },
+          { id: 'o3', text: 'Ask again until the answer agrees with the plan', color: COLORS[2], isCorrect: false },
+          { id: 'o4', text: 'Remove caveats so the answer feels decisive', color: COLORS[3], isCorrect: false },
         ],
         timeLimit: 30,
       },
       {
         id: 'pi-choice-5',
         type: 'choice',
-        text: 'Which prompt is most likely to produce useful, provable AI output?',
-        facilitatorNote: 'Push people toward role, context, evidence requirements, decision criteria, and output format.',
+        text: 'What makes a generated source-backed answer still risky?',
+        facilitatorNote: 'RAG and citations help, but they do not remove the need to test source quality, relevance, freshness, and interpretation.',
         options: [
-          { id: 'o1', text: 'Tell me the best media channels', color: COLORS[0], isCorrect: false },
-          { id: 'o2', text: 'Role, context, evidence, assumptions, and a decision table', color: COLORS[1], isCorrect: true },
-          { id: 'o3', text: 'Write something smarter than our current version', color: COLORS[2], isCorrect: false },
-          { id: 'o4', text: 'Give one answer only and do not include caveats', color: COLORS[3], isCorrect: false },
+          { id: 'o1', text: 'The answer includes too many bullet points', color: COLORS[0], isCorrect: false },
+          { id: 'o2', text: 'The sources may be weak, stale, cherry-picked, or misread', color: COLORS[1], isCorrect: true },
+          { id: 'o3', text: 'The answer is longer than the prompt', color: COLORS[2], isCorrect: false },
+          { id: 'o4', text: 'The model used a table instead of prose', color: COLORS[3], isCorrect: false },
         ],
         timeLimit: 35,
       },
       {
         id: 'pi-choice-6',
         type: 'choice',
+        text: 'Which prompt is most likely to produce useful, provable AI output?',
+        facilitatorNote: 'Push toward role, context, evidence requirements, decision criteria, uncertainty, and output format.',
+        options: [
+          { id: 'o1', text: 'Tell me the best media channels', color: COLORS[0], isCorrect: false },
+          { id: 'o2', text: 'Role, context, evidence rules, assumptions, and decision criteria', color: COLORS[1], isCorrect: true },
+          { id: 'o3', text: 'Write something smarter than our current version', color: COLORS[2], isCorrect: false },
+          { id: 'o4', text: 'Give one answer only and do not include caveats', color: COLORS[3], isCorrect: false },
+        ],
+        timeLimit: 35,
+      },
+      {
+        id: 'pi-choice-7',
+        type: 'choice',
         text: 'The best first AI pilot for an agency team is usually...',
         facilitatorNote: 'Push toward low-risk, repeatable work first. A good pilot should be visible enough to learn from, but not dangerous if it fails.',
         options: [
           { id: 'o1', text: 'The most complex client strategy problem available', color: COLORS[0], isCorrect: false },
-          { id: 'o2', text: 'A high-repeat, low-risk workflow with a clear review owner', color: COLORS[1], isCorrect: true },
+          { id: 'o2', text: 'A repeatable workflow with a clear review owner', color: COLORS[1], isCorrect: true },
           { id: 'o3', text: 'Anything that removes all human review', color: COLORS[2], isCorrect: false },
-          { id: 'o4', text: 'A tool nobody needs but everyone wants to try', color: COLORS[3], isCorrect: false },
+          { id: 'o4', text: 'A flashy demo with no quality benchmark', color: COLORS[3], isCorrect: false },
         ],
         timeLimit: 30,
       },
       {
-        id: 'pi-choice-7',
+        id: 'pi-choice-8',
         type: 'choice',
         text: 'Which guardrail makes an AI pilot safer to try next week?',
         facilitatorNote: 'Guide the discussion toward review checkpoints, source requirements, data boundaries, and escalation triggers.',
@@ -101,7 +114,7 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
         timeLimit: 30,
       },
       {
-        id: 'pi-choice-8',
+        id: 'pi-choice-9',
         type: 'choice',
         text: 'A human must stay firmly in the loop when the AI output affects...',
         facilitatorNote: 'Make this practical: advice, spend, reputation, policy, legal/commercial risk, or anything that could be presented as agency judgement.',
@@ -114,12 +127,12 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
         timeLimit: 30,
       },
       {
-        id: 'pi-choice-9',
+        id: 'pi-choice-10',
         type: 'choice',
         text: 'What is the strongest follow-up after this training?',
         facilitatorNote: 'Close with a practical next step: one workflow, one owner, one test case, and one review standard.',
         options: [
-          { id: 'o1', text: 'Ask everyone to use AI more often and see what happens', color: COLORS[0], isCorrect: false },
+          { id: 'o1', text: 'Tell everyone to use AI more often and see what happens', color: COLORS[0], isCorrect: false },
           { id: 'o2', text: 'Pick one workflow, define checks, and test it on a past brief', color: COLORS[1], isCorrect: true },
           { id: 'o3', text: 'Buy another tool before deciding the process', color: COLORS[2], isCorrect: false },
           { id: 'o4', text: 'Keep all prompts personal so nobody has to maintain them', color: COLORS[3], isCorrect: false },
@@ -131,7 +144,7 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
   {
     id: 'youngshand-media-skills-lab',
     title: 'YoungShand Media Skills Lab',
-    description: 'A practical quiz for identifying useful media-planning skills, guardrails, and test cases.',
+    description: 'A sharper quiz on reusable media-planning skills, test design, and safe rollout.',
     createdAt: '2026-05-20T00:00:00.000Z',
     questions: [
       {
@@ -228,6 +241,19 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
       {
         id: 'ms-choice-8',
         type: 'choice',
+        text: 'When does a prompt become a skill rather than just a saved instruction?',
+        facilitatorNote: 'A skill should have consistent inputs, workflow steps, quality gates, failure modes, and output conventions.',
+        options: [
+          { id: 'o1', text: 'When it is copied into a nicer document', color: COLORS[0], isCorrect: false },
+          { id: 'o2', text: 'When it defines inputs, checks, failure modes, and outputs', color: COLORS[1], isCorrect: true },
+          { id: 'o3', text: 'When it uses more technical language', color: COLORS[2], isCorrect: false },
+          { id: 'o4', text: 'When only one person knows how to run it', color: COLORS[3], isCorrect: false },
+        ],
+        timeLimit: 35,
+      },
+      {
+        id: 'ms-choice-9',
+        type: 'choice',
         text: 'A skill should be paused or escalated when...',
         facilitatorNote: 'Keep this practical and memorable. A skill that lacks proof, violates policy, or carries high consequence needs a human decision.',
         options: [
@@ -239,7 +265,7 @@ export const YOUNGSHAND_WORKSHOP_PACKS: Quiz[] = [
         timeLimit: 30,
       },
       {
-        id: 'ms-choice-9',
+        id: 'ms-choice-10',
         type: 'choice',
         text: 'What would Duncan most likely need to see to call a skill useful?',
         facilitatorNote: 'Close on success criteria: time saved, better quality, fewer review loops, safer handoff, repeatability, or measurable client usefulness.',
