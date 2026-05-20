@@ -3,7 +3,7 @@ import './globals.css'; // Global styles
 
 export const metadata: Metadata = {
   title: 'YoungShand Live Lab',
-  description: 'Interactive workshop board and quiz game for YoungShand training',
+  description: 'Interactive quiz game for YoungShand training',
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

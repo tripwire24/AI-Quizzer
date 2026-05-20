@@ -79,7 +79,7 @@ export default function HostDashboard() {
                   <h3 className="text-xl font-bold text-gray-900 mb-2">{pack.title}</h3>
                   <p className="text-gray-600 mb-2 max-w-2xl">{pack.description}</p>
                   <p className="text-sm text-indigo-600 font-semibold">
-                    {pack.questions.length} activities • live responses and scored questions
+                    {pack.questions.length} multiple-choice questions
                   </p>
                 </div>
                 <button

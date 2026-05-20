@@ -14,7 +14,7 @@ export default function Home() {
 
       <div className="w-full max-w-md bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 text-center ring-1 ring-white/10">
         <h1 className="text-4xl font-black text-white mb-1">YoungShand Live Lab</h1>
-        <p className="text-indigo-300 mb-8 text-sm">Join the workshop board or host the training game.</p>
+        <p className="text-indigo-300 mb-8 text-sm">Join or host the training quiz game.</p>
         
         <JoinGameForm />
         
